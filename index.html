@@ -3,113 +3,98 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>高雄鹽埕美食地圖</title>
+<title>高雄美食地圖 JS版</title>
 
 <style>
-body { margin:0; font-family:-apple-system,"Noto Sans TC"; background:#f6f6f6; }
-header { background:#ff6b35; color:#fff; padding:12px; text-align:center; font-weight:bold; }
-#map { width:100%; height:45vh; }
-.btnBar { display:flex; gap:8px; padding:10px; background:#fff; position:sticky; top:0; }
-button { flex:1; padding:10px; border:none; border-radius:8px; }
-.primary{background:#ff6b35;color:#fff;}
-.gray{background:#eee;}
-.card{background:#fff;margin:10px;padding:12px;border-radius:10px;}
-.name{font-weight:bold;}
-a{color:#ff6b35;text-decoration:none;font-weight:bold;}
+html, body {
+  margin: 0;
+  height: 100%;
+}
+
+#map {
+  height: 50vh;
+  width: 100%;
+}
+
+#list {
+  padding: 10px;
+  font-family: -apple-system;
+}
+
+.card {
+  background: #fff;
+  margin-bottom: 10px;
+  padding: 10px;
+  border-radius: 10px;
+}
 </style>
 </head>
 
 <body>
 
-<header>📍 高雄鹽埕美食地圖</header>
 <div id="map"></div>
-
-<div class="btnBar">
-<button class="primary" onclick="getLocation()">📍 距離</button>
-<button class="gray" onclick="sortByDistance()">📏 排序</button>
-<button class="gray" onclick="shareLine()">📤 LINE</button>
-</div>
-
 <div id="list"></div>
 
 <script>
-let map;
 
 const places = [
-{name:"鹽埕鴨肉意麵", url:"https://maps.app.goo.gl/EohnQ2ACsfgYeZo4A", lat:22.6232,lng:120.2841},
-{name:"阿凡沙茶麻醬麵", url:"https://maps.app.goo.gl/yeKTMjU21ZFmPcLo6", lat:22.6235,lng:120.2840},
-{name:"老蔡虱目魚粥", url:"https://maps.app.goo.gl/M4us9PWYqmFom6uu", lat:22.6239,lng:120.2852},
-{name:"阿財雞絲麵", url:"https://maps.app.goo.gl/jDwETtU91wv8TV5DA", lat:22.6242,lng:120.2850},
-{name:"鴨肉本", url:"https://maps.app.goo.gl/goMw9skhhPwvGXTZ8", lat:22.6228,lng:120.2835},
-{name:"鴨肉珍", url:"https://maps.app.goo.gl/wBXPWRkEVzvAC2wVA", lat:22.6226,lng:120.2833},
-{name:"阿英排骨飯", url:"https://maps.app.goo.gl/U5f1JrHDv9NjRfRY6", lat:22.6229,lng:120.2846},
-{name:"汕頭陽春麵", url:"https://maps.app.goo.gl/urkSU9mxeXGWyQwY7", lat:22.6230,lng:120.2851},
-{name:"天天沙茶火鍋", url:"https://maps.app.goo.gl/MJmenLXhdZdfxfHx9", lat:22.6245,lng:120.2860}
+{ name:"鹽埕鴨肉意麵", lat:22.6239, lng:120.2840 },
+{ name:"阿凡沙茶麻醬麵", lat:22.6245, lng:120.2836 },
+{ name:"老蔡虱目魚粥", lat:22.6249, lng:120.2851 },
+{ name:"阿財雞絲麵", lat:22.6253, lng:120.2856 },
+{ name:"鴨肉本", lat:22.6241, lng:120.2828 }
 ];
 
-let userLat=null,userLng=null;
+let map;
 
-function initMap(){
-map=new google.maps.Map(document.getElementById("map"),{
-center:{lat:22.623,lng:120.284},
-zoom:16
+function initMap() {
+
+map = new google.maps.Map(document.getElementById("map"), {
+  center: { lat: 22.6273, lng: 120.3014 },
+  zoom: 15
 });
 
-places.forEach(p=>{
-new google.maps.Marker({position:{lat:p.lat,lng:p.lng},map});
+// 🔥 全部標記
+places.forEach(p => {
+
+  const marker = new google.maps.Marker({
+    position: { lat: p.lat, lng: p.lng },
+    map: map,
+    title: p.name
+  });
+
+  const info = new google.maps.InfoWindow({
+    content: `<b>${p.name}</b>`
+  });
+
+  marker.addListener("click", () => {
+    info.open(map, marker);
+  });
+
 });
 
-render();
+renderList();
+
 }
 
-function render(){
-const list=document.getElementById("list");
-list.innerHTML="";
-places.forEach(p=>{
-list.innerHTML+=`
+function renderList() {
+
+document.getElementById("list").innerHTML =
+places.map(p => `
 <div class="card">
-<div class="name">${p.name}</div>
-<a href="${p.url}" target="_blank">開啟地圖</a>
-</div>`;
-});
+<b>${p.name}</b><br>
+<a href="https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}" target="_blank">
+導航
+</a>
+</div>
+`).join("");
+
 }
 
-function getDistance(a,b,c,d){
-const R=6371;
-const x=(c-a)*Math.PI/180;
-const y=(d-b)*Math.PI/180;
-return R*2*Math.asin(Math.sqrt(Math.sin(x/2)**2+
-Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(y/2)**2));
-}
-
-function getLocation(){
-navigator.geolocation.getCurrentPosition(pos=>{
-userLat=pos.coords.latitude;
-userLng=pos.coords.longitude;
-places.forEach(p=>{
-p.distance=getDistance(userLat,userLng,p.lat,p.lng);
-});
-alert("距離完成");
-});
-}
-
-function sortByDistance(){
-places.sort((a,b)=>(a.distance||999)-(b.distance||999));
-render();
-}
-
-function shareLine(){
-let text="高雄鹽埕美食\n\n";
-places.forEach(p=>{
-text+=p.name+"\n"+p.url+"\n\n";
-});
-window.open("https://social-plugins.line.me/lineit/share?text="+encodeURIComponent(text));
-}
 </script>
 
-<script async defer
-src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&callback=initMap">
-</script>
+<!-- ⚠️ 這裡要換 API KEY -->
+<script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&callback=initMap" async defer></script>
 
 </body>
 </html>
