@@ -1,100 +1,221 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>高雄美食地圖 JS版</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>高雄鹽埕美食導航App</title>
 
 <style>
-html, body {
+body {
+  font-family: sans-serif;
   margin: 0;
-  height: 100%;
+  background: #f7f7f7;
 }
 
-#map {
-  height: 50vh;
-  width: 100%;
+header {
+  background: #ff6b35;
+  color: white;
+  padding: 14px;
+  text-align: center;
+  font-size: 18px;
+  font-weight: bold;
 }
 
-#list {
+.mode-switch {
+  display: flex;
+  gap: 10px;
   padding: 10px;
-  font-family: -apple-system;
+}
+
+.mode-switch button {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  border-radius: 10px;
+  background: #ddd;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.mode-switch button.active {
+  background: #ff6b35;
+  color: white;
+}
+
+#listView {
+  padding: 10px;
 }
 
 .card {
-  background: #fff;
+  background: white;
+  padding: 12px;
   margin-bottom: 10px;
-  padding: 10px;
-  border-radius: 10px;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.btns {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+}
+
+.btns button {
+  flex: 1;
+  padding: 8px;
+  border: none;
+  border-radius: 8px;
+  background: #eee;
+}
+
+.map-wrapper {
+  width: 100%;
+  height: 75vh;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.map-wrapper iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
 }
 </style>
 </head>
 
 <body>
 
-<div id="map"></div>
-<div id="list"></div>
+<header>📍 高雄鹽埕美食導航 App</header>
+
+<div class="mode-switch">
+  <button id="btnList" class="active">📋 清單模式</button>
+  <button id="btnMap">🗺️ 地圖模式</button>
+</div>
+
+<!-- 清單 -->
+<div id="listView"></div>
+
+<!-- 地圖 -->
+<div id="mapView" style="display:none;">
+  <div class="map-wrapper">
+    <iframe src="https://www.google.com/maps/d/embed?mid=1nyBowDFbN1jZVVnFNkDkqw9dXaoVX6s&ehbc=2E312F"></iframe>
+  </div>
+</div>
 
 <script>
-
-const places = [
-{ name:"鹽埕鴨肉意麵", lat:22.6239, lng:120.2840 },
-{ name:"阿凡沙茶麻醬麵", lat:22.6245, lng:120.2836 },
-{ name:"老蔡虱目魚粥", lat:22.6249, lng:120.2851 },
-{ name:"阿財雞絲麵", lat:22.6253, lng:120.2856 },
-{ name:"鴨肉本", lat:22.6241, lng:120.2828 }
+// -----------------------------
+// 📍 店家資料
+// -----------------------------
+const spots = [
+{ name:"鹽埕鴨肉意麵", addr:"高雄市鹽埕區大智路126號" },
+{ name:"阿凡沙茶麻醬麵", addr:"高雄市鹽埕區大智路107號" },
+{ name:"老蔡虱目魚粥", addr:"高雄市鹽埕區瀨南街201號" },
+{ name:"阿財雞絲麵", addr:"高雄市鹽埕區壽星街11號" },
+{ name:"鴨肉本", addr:"高雄市鹽埕區富野路107號" },
+{ name:"鴨肉珍", addr:"高雄市鹽埕區大公路55號" },
+{ name:"阿英排骨飯", addr:"高雄市鹽埕區富野路79-2號" },
+{ name:"汕頭陽春麵", addr:"高雄市鹽埕區壽星街12號" },
+{ name:"天天沙茶火鍋", addr:"高雄市鹽埕區七賢三路240號" },
+{ name:"阿姨蛋餅", addr:"高雄市鼓山區鼓山一路5號之1" },
+{ name:"田記豆漿", addr:"高雄市鹽埕區新樂街75之3號" },
+{ name:"巴堂蜂蜜蛋糕", addr:"高雄市鹽埕區大勇路127號" },
+{ name:"樺達奶茶", addr:"高雄市鹽埕區新樂街101號" }
 ];
 
-let map;
+let userLat = null;
+let userLng = null;
 
-function initMap() {
-
-map = new google.maps.Map(document.getElementById("map"), {
-  center: { lat: 22.6273, lng: 120.3014 },
-  zoom: 15
+// -----------------------------
+// 📍 取得位置
+// -----------------------------
+navigator.geolocation.getCurrentPosition(pos=>{
+  userLat = pos.coords.latitude;
+  userLng = pos.coords.longitude;
+  renderList();
 });
 
-// 🔥 全部標記
-places.forEach(p => {
-
-  const marker = new google.maps.Marker({
-    position: { lat: p.lat, lng: p.lng },
-    map: map,
-    title: p.name
-  });
-
-  const info = new google.maps.InfoWindow({
-    content: `<b>${p.name}</b>`
-  });
-
-  marker.addListener("click", () => {
-    info.open(map, marker);
-  });
-
-});
-
-renderList();
-
+// -----------------------------
+// 📏 距離計算
+// -----------------------------
+function getDistance(lat1,lng1,lat2,lng2){
+  const R = 6371;
+  const dLat = (lat2-lat1)*Math.PI/180;
+  const dLng = (lng2-lng1)*Math.PI/180;
+  const a =
+    Math.sin(dLat/2)*Math.sin(dLat/2) +
+    Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180) *
+    Math.sin(dLng/2)*Math.sin(dLng/2);
+  return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
 }
 
-function renderList() {
+// -----------------------------
+// 🧾 清單渲染
+// -----------------------------
+function renderList(){
+  if(!userLat) return;
 
-document.getElementById("list").innerHTML =
-places.map(p => `
-<div class="card">
-<b>${p.name}</b><br>
-<a href="https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}" target="_blank">
-導航
-</a>
-</div>
-`).join("");
+  const sorted = spots.map(s=>({
+    ...s,
+    dist: getDistance(userLat,userLng,23.0,120.2) // fallback
+  })).sort((a,b)=>a.dist-b.dist);
 
+  document.getElementById("listView").innerHTML =
+    sorted.map(s=>`
+      <div class="card">
+        <b>${s.name}</b><br/>
+        <small>${s.addr}</small>
+
+        <div class="btns">
+          <button onclick="nav('${s.addr}')">🚗 導航</button>
+          <button onclick="line('${s.name}','${s.addr}')">LINE</button>
+        </div>
+      </div>
+    `).join("");
 }
 
+// -----------------------------
+// 🚗 Google導航
+// -----------------------------
+function nav(addr){
+  window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`);
+}
+
+// -----------------------------
+// 💬 LINE分享
+// -----------------------------
+function line(name,addr){
+  const url = `https://line.me/R/msg/text/?${encodeURIComponent(name + " " + addr)}`;
+  window.open(url);
+}
+
+// -----------------------------
+// 🔁 模式切換
+// -----------------------------
+const btnList = document.getElementById("btnList");
+const btnMap = document.getElementById("btnMap");
+
+btnList.onclick = ()=>{
+  listView.style.display="block";
+  mapView.style.display="none";
+  btnList.classList.add("active");
+  btnMap.classList.remove("active");
+  localStorage.setItem("mode","list");
+}
+
+btnMap.onclick = ()=>{
+  listView.style.display="none";
+  mapView.style.display="block";
+  btnMap.classList.add("active");
+  btnList.classList.remove("active");
+  localStorage.setItem("mode","map");
+}
+
+// -----------------------------
+// 💾 記住模式
+// -----------------------------
+const mode = localStorage.getItem("mode");
+if(mode==="map") btnMap.click();
 </script>
-
-<!-- ⚠️ 這裡要換 API KEY -->
-<script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&callback=initMap" async defer></script>
 
 </body>
 </html>
